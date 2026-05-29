@@ -1,0 +1,150 @@
+package com.sanket.floatingvolumebutton
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.graphics.PixelFormat
+import android.media.AudioManager
+import android.os.Build
+import android.os.IBinder
+import android.view.Gravity
+import android.view.WindowManager
+import androidx.compose.ui.platform.ComposeView
+import androidx.core.app.NotificationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.sanket.floatingvolumebutton.ui.FloatingButton
+
+class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+
+    private lateinit var windowManager: WindowManager
+    private lateinit var params: WindowManager.LayoutParams
+    private lateinit var composeView: ComposeView
+    private lateinit var audioManager: AudioManager
+
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+
+    private val _viewModelStore = ViewModelStore()
+    override val viewModelStore: ViewModelStore get() = _viewModelStore
+
+    private val savedStateRegistryController = SavedStateRegistryController.create(this)
+    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+
+    override fun onCreate() {
+        savedStateRegistryController.performRestore(null)
+        super.onCreate()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+
+        createNotificationChannel()
+        
+        val notification = createNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1, notification)
+        }
+
+        setupFloatingButton()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        return START_STICKY
+    }
+
+    private fun setupFloatingButton() {
+        val displayMetrics = resources.displayMetrics
+        val screenHeight = displayMetrics.heightPixels
+
+        params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 100
+        }
+
+        composeView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@FloatingVolumeService)
+            setViewTreeViewModelStoreOwner(this@FloatingVolumeService)
+            setViewTreeSavedStateRegistryOwner(this@FloatingVolumeService)
+            setContent {
+                FloatingButton(
+                    onClick = {
+                        audioManager.adjustStreamVolume(
+                            AudioManager.STREAM_MUSIC,
+                            AudioManager.ADJUST_SAME,
+                            AudioManager.FLAG_SHOW_UI
+                        )
+                    },
+                    onDrag = { dx, dy ->
+                        params.x += dx
+                        params.y += dy
+                        
+                        // Check if dragged to bottom
+                        if (params.y > screenHeight * 0.85) {
+                            stopSelf()
+                        } else {
+                            windowManager.updateViewLayout(this, params)
+                        }
+                    },
+                    onDismiss = { stopSelf() },
+                    screenHeight = screenHeight
+                )
+            }
+        }
+
+        windowManager.addView(composeView, params)
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "floating_volume",
+                "Floating Volume Service",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun createNotification(): Notification {
+        return NotificationCompat.Builder(this, "floating_volume")
+            .setContentTitle("Floating Volume Button")
+            .setContentText("Button is active")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::composeView.isInitialized) {
+            windowManager.removeView(composeView)
+        }
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+}
