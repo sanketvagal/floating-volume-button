@@ -18,6 +18,7 @@ class PreferencesManager(context: Context) {
             KEY_OPACITY -> _opacity.value = sharedPreferences.getFloat(KEY_OPACITY, DEFAULT_OPACITY)
             KEY_COLOR_OUTSIDE -> _colorOutside.value = sharedPreferences.getInt(KEY_COLOR_OUTSIDE, DEFAULT_COLOR_OUTSIDE)
             KEY_COLOR_INSIDE -> _colorInside.value = sharedPreferences.getInt(KEY_COLOR_INSIDE, DEFAULT_COLOR_INSIDE)
+            KEY_STICK_TO_EDGES -> _stickToEdges.value = sharedPreferences.getBoolean(KEY_STICK_TO_EDGES, DEFAULT_STICK_TO_EDGES)
         }
     }
 
@@ -31,11 +32,13 @@ class PreferencesManager(context: Context) {
         const val KEY_OPACITY = "button_opacity"
         const val KEY_COLOR_OUTSIDE = "color_outside"
         const val KEY_COLOR_INSIDE = "color_inside"
+        const val KEY_STICK_TO_EDGES = "stick_to_edges"
 
         const val DEFAULT_SIZE = 60
         const val DEFAULT_OPACITY = 0.7f
         val DEFAULT_COLOR_OUTSIDE = Color.Blue.toArgb()
         val DEFAULT_COLOR_INSIDE = Color.White.toArgb()
+        const val DEFAULT_STICK_TO_EDGES = false
     }
 
     private val _isEnabled = MutableStateFlow(sharedPreferences.getBoolean(KEY_IS_ENABLED, false))
@@ -52,6 +55,9 @@ class PreferencesManager(context: Context) {
 
     private val _colorInside = MutableStateFlow(sharedPreferences.getInt(KEY_COLOR_INSIDE, DEFAULT_COLOR_INSIDE))
     val colorInside: StateFlow<Int> = _colorInside
+
+    private val _stickToEdges = MutableStateFlow(sharedPreferences.getBoolean(KEY_STICK_TO_EDGES, DEFAULT_STICK_TO_EDGES))
+    val stickToEdges: StateFlow<Boolean> = _stickToEdges
 
     fun setEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_IS_ENABLED, enabled).apply()
@@ -84,5 +90,10 @@ class PreferencesManager(context: Context) {
     fun setColorInside(color: Int) {
         sharedPreferences.edit().putInt(KEY_COLOR_INSIDE, color).apply()
         _colorInside.value = color
+    }
+
+    fun setStickToEdges(stick: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_STICK_TO_EDGES, stick).apply()
+        _stickToEdges.value = stick
     }
 }

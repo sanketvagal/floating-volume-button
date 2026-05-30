@@ -137,17 +137,41 @@ fun MainScreen(
         Text(text = "Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Enable stick to edges
+        val stickToEdges by preferencesManager.stickToEdges.collectAsState()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Stick to Edges",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isEnabled) Color.Unspecified else Color.Gray
+            )
+            Switch(
+                checked = stickToEdges,
+                onCheckedChange = { preferencesManager.setStickToEdges(it) },
+                enabled = isEnabled
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Size Setting
         val currentSize by preferencesManager.size.collectAsState()
         var size by remember(currentSize) { mutableFloatStateOf(currentSize.toFloat()) }
-        Text(text = "Button Size: ${size.toInt()} dp")
+        Text(
+            text = "Button Size: ${size.toInt()} dp",
+            color = if (isEnabled) Color.Unspecified else Color.Gray
+        )
         Slider(
             value = size,
             onValueChange = {
                 size = it
                 preferencesManager.setSize(it.toInt())
             },
-            valueRange = 40f..120f
+            valueRange = 40f..120f,
+            enabled = isEnabled
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -155,38 +179,50 @@ fun MainScreen(
         // Opacity Setting
         val currentOpacity by preferencesManager.opacity.collectAsState()
         var opacity by remember(currentOpacity) { mutableFloatStateOf(currentOpacity) }
-        Text(text = "Opacity: ${(opacity * 100).toInt()}%")
+        Text(
+            text = "Opacity: ${(opacity * 100).toInt()}%",
+            color = if (isEnabled) Color.Unspecified else Color.Gray
+        )
         Slider(
             value = opacity,
             onValueChange = {
                 opacity = it
                 preferencesManager.setOpacity(it)
             },
-            valueRange = 0.1f..1.0f
+            valueRange = 0.1f..1.0f,
+            enabled = isEnabled
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Outside Color
         val outsideColor by preferencesManager.colorOutside.collectAsState()
-        Text(text = "Outside Color")
+        Text(
+            text = "Outside Color",
+            color = if (isEnabled) Color.Unspecified else Color.Gray
+        )
         ColorPickerRow(
             selectedColor = Color(outsideColor),
             onColorSelected = {
                 preferencesManager.setColorOutside(it.toArgb())
-            }
+            },
+            enabled = isEnabled
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Inside Color
         val insideColor by preferencesManager.colorInside.collectAsState()
-        Text(text = "Speaker Icon Color")
+        Text(
+            text = "Speaker Icon Color",
+            color = if (isEnabled) Color.Unspecified else Color.Gray
+        )
         ColorPickerRow(
             selectedColor = Color(insideColor),
             onColorSelected = {
                 preferencesManager.setColorInside(it.toArgb())
-            }
+            },
+            enabled = isEnabled
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -198,7 +234,7 @@ fun MainScreen(
 }
 
 @Composable
-fun ColorPickerRow(selectedColor: Color, onColorSelected: (Color) -> Unit) {
+fun ColorPickerRow(selectedColor: Color, onColorSelected: (Color) -> Unit, enabled: Boolean = true) {
     val colors = listOf(
         Color.Blue, Color.Red, Color.Green, Color.Yellow,
         Color.Black, Color.White, Color.Gray, Color.Cyan, Color.Magenta
@@ -214,8 +250,8 @@ fun ColorPickerRow(selectedColor: Color, onColorSelected: (Color) -> Unit) {
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .background(color, CircleShape)
-                    .clickable { onColorSelected(color) }
+                    .background(color.copy(alpha = if (enabled) 1f else 0.5f), CircleShape)
+                    .clickable(enabled = enabled) { onColorSelected(color) }
                     .padding(4.dp)
             ) {
                 if (color == selectedColor) {

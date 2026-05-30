@@ -26,6 +26,7 @@ fun FloatingButton(
     insideColor: Color,
     onClick: () -> Unit,
     onDrag: (dx: Int, dy: Int) -> Unit,
+    onDragEnd: () -> Unit,
     onDismiss: () -> Unit,
     screenHeight: Int
 ) {
@@ -40,7 +41,7 @@ fun FloatingButton(
                         onDrag(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
                     },
                     onDragEnd = {
-                        // Dismiss logic is handled in the service via position check
+                        onDragEnd()
                     }
                 )
             }
@@ -68,6 +69,7 @@ fun FloatingButtonPreview() {
         insideColor = Color.White,
         onClick = {},
         onDrag = { _, _ -> },
+        onDragEnd = {},
         onDismiss = {},
         screenHeight = 2000
     )

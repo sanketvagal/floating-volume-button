@@ -100,6 +100,10 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                 val opacity by preferencesManager.opacity.collectAsState()
                 val outsideColor by preferencesManager.colorOutside.collectAsState()
                 val insideColor by preferencesManager.colorInside.collectAsState()
+                val stickToEdges by preferencesManager.stickToEdges.collectAsState()
+
+                val screenWidth = resources.displayMetrics.widthPixels
+                val buttonSizePx = (size * resources.displayMetrics.density).toInt()
 
                 LaunchedEffect(size) {
                     windowManager.updateViewLayout(this@apply, params)
@@ -125,6 +129,22 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         if (params.y > screenHeight * 0.85) {
                             stopSelf()
                         } else {
+                            windowManager.updateViewLayout(this, params)
+                        }
+                    },
+                    onDragEnd = {
+                        if (stickToEdges) {
+                            val distLeft = params.x
+                            val distRight = screenWidth - params.x - buttonSizePx
+                            val distTop = params.y
+
+                            if (distTop < distLeft && distTop < distRight && distTop < 200) {
+                                params.y = 0
+                            } else if (distLeft < distRight) {
+                                params.x = 0
+                            } else {
+                                params.x = screenWidth - buttonSizePx
+                            }
                             windowManager.updateViewLayout(this, params)
                         }
                     },
