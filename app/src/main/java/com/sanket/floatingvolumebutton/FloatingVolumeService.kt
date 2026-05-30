@@ -105,7 +105,6 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                 val dragToDismiss by preferencesManager.dragToDismiss.collectAsState()
 
                 val screenWidth = resources.displayMetrics.widthPixels
-                val buttonSizePx = (size * resources.displayMetrics.density).toInt()
 
                 LaunchedEffect(size) {
                     windowManager.updateViewLayout(this@apply, params)
@@ -133,18 +132,23 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         params.x += dx
                         params.y += dy
                         
+                        // Prevent dragging off screen
+                        params.x = params.x.coerceIn(0, screenWidth - this@apply.width)
+                        params.y = params.y.coerceIn(0, screenHeight - this@apply.height)
+                        
                         // Check if dragged to bottom
                         if (dragToDismiss && params.y > screenHeight * 0.85) {
                             performHaptic()
                             stopSelf()
                         } else {
-                            windowManager.updateViewLayout(this, params)
+                            windowManager.updateViewLayout(this@apply, params)
                         }
                     },
                     onDragEnd = {
                         if (stickToEdges) {
+                            val viewWidth = this@apply.width
                             val distLeft = params.x
-                            val distRight = screenWidth - params.x - buttonSizePx
+                            val distRight = screenWidth - params.x - viewWidth
                             val distTop = params.y
 
                             val oldX = params.x
@@ -155,16 +159,16 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                             } else if (distLeft < distRight) {
                                 params.x = 0
                             } else {
-                                params.x = screenWidth - buttonSizePx
+                                params.x = screenWidth - viewWidth
                             }
 
                             val snapped = params.x != oldX || params.y != oldY
                             if (snapped) {
                                 performHaptic()
                             }
-                            isAtEdge = params.x == 0 || params.x == screenWidth - buttonSizePx || params.y == 0
+                            isAtEdge = params.x == 0 || params.x == screenWidth - viewWidth || params.y == 0
                             
-                            windowManager.updateViewLayout(this, params)
+                            windowManager.updateViewLayout(this@apply, params)
                         } else {
                             isAtEdge = false
                         }
