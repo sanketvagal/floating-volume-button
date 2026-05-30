@@ -157,6 +157,26 @@ fun MainScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Drag to Dismiss
+        val dragToDismiss by preferencesManager.dragToDismiss.collectAsState()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Drag to Bottom to Dismiss",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isEnabled) Color.Unspecified else Color.Gray
+            )
+            Switch(
+                checked = dragToDismiss,
+                onCheckedChange = { preferencesManager.setDragToDismiss(it) },
+                enabled = isEnabled
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Size Setting
         val currentSize by preferencesManager.size.collectAsState()
         var size by remember(currentSize) { mutableFloatStateOf(currentSize.toFloat()) }

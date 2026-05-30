@@ -102,6 +102,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                 val outsideColor by preferencesManager.colorOutside.collectAsState()
                 val insideColor by preferencesManager.colorInside.collectAsState()
                 val stickToEdges by preferencesManager.stickToEdges.collectAsState()
+                val dragToDismiss by preferencesManager.dragToDismiss.collectAsState()
 
                 val screenWidth = resources.displayMetrics.widthPixels
                 val buttonSizePx = (size * resources.displayMetrics.density).toInt()
@@ -133,7 +134,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         params.y += dy
                         
                         // Check if dragged to bottom
-                        if (params.y > screenHeight * 0.85) {
+                        if (dragToDismiss && params.y > screenHeight * 0.85) {
                             performHaptic()
                             stopSelf()
                         } else {
