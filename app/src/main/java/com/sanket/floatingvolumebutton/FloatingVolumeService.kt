@@ -12,11 +12,33 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -39,6 +61,10 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
     private lateinit var audioManager: AudioManager
     private lateinit var preferencesManager: PreferencesManager
     private var isAtEdge = true
+    private lateinit var dismissComposeView: ComposeView
+    private lateinit var dismissParams: WindowManager.LayoutParams
+    private val showDismissal = mutableStateOf(false)
+    private val isNearDismissal = mutableStateOf(false)
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -67,6 +93,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
             startForeground(1, notification)
         }
 
+        setupDismissalView()
         setupFloatingButton()
     }
 
@@ -127,6 +154,9 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                             performHaptic()
                             isAtEdge = false
                         }
+                        if (dragToDismiss) {
+                            showDismissal.value = true
+                        }
                     },
                     onDrag = { dx, dy ->
                         params.x += dx
@@ -136,15 +166,31 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         params.x = params.x.coerceIn(0, screenWidth - this@apply.width)
                         params.y = params.y.coerceIn(0, screenHeight - this@apply.height)
                         
-                        // Check if dragged to bottom
-                        if (dragToDismiss && params.y > screenHeight * 0.85) {
-                            performHaptic()
-                            stopSelf()
-                        } else {
-                            windowManager.updateViewLayout(this@apply, params)
+                        // Check if dragged to bottom center
+                        if (dragToDismiss) {
+                            val centerX = params.x + this@apply.width / 2
+                            val centerY = params.y + this@apply.height / 2
+                            
+                            val inDismissZone = centerY > screenHeight * 0.8 && 
+                                               centerX > screenWidth * 0.3 && 
+                                               centerX < screenWidth * 0.7
+                            
+                            if (inDismissZone != isNearDismissal.value) {
+                                isNearDismissal.value = inDismissZone
+                                performHaptic()
+                            }
                         }
+                        
+                        windowManager.updateViewLayout(this@apply, params)
                     },
                     onDragEnd = {
+                        showDismissal.value = false
+                        if (dragToDismiss && isNearDismissal.value) {
+                            stopSelf()
+                            return@FloatingButton
+                        }
+                        isNearDismissal.value = false
+
                         if (stickToEdges) {
                             val viewWidth = this@apply.width
                             val distLeft = params.x
@@ -185,6 +231,63 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
         windowManager.addView(composeView, params)
     }
 
+    private fun setupDismissalView() {
+        val displayMetrics = resources.displayMetrics
+        
+        dismissParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            (150 * displayMetrics.density).toInt(),
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        }
+
+        dismissComposeView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@FloatingVolumeService)
+            setViewTreeViewModelStoreOwner(this@FloatingVolumeService)
+            setViewTreeSavedStateRegistryOwner(this@FloatingVolumeService)
+            setContent {
+                val visible by showDismissal
+                val isNear by isNearDismissal
+                
+                val scale by animateFloatAsState(if (isNear) 1.4f else 1f, label = "scale")
+                
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut(),
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .padding(bottom = 40.dp)
+                                .size(60.dp)
+                                .scale(scale)
+                                .shadow(if (isNear) 12.dp else 4.dp, CircleShape)
+                                .background(
+                                    if (isNear) Color.Red.copy(alpha = 0.8f) else Color.Black.copy(alpha = 0.5f),
+                                    CircleShape
+                                )
+                                .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Dismiss",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        windowManager.addView(dismissComposeView, dismissParams)
+    }
+
     private fun performHaptic() {
         composeView.performHapticFeedback(
             android.view.HapticFeedbackConstants.KEYBOARD_TAP
@@ -219,6 +322,9 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
         }
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
+        }
+        if (::dismissComposeView.isInitialized) {
+            windowManager.removeView(dismissComposeView)
         }
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
