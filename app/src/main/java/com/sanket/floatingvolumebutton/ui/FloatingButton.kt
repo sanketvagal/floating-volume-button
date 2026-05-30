@@ -20,6 +20,10 @@ import kotlin.math.roundToInt
 
 @Composable
 fun FloatingButton(
+    size: Int,
+    opacity: Float,
+    outsideColor: Color,
+    insideColor: Color,
     onClick: () -> Unit,
     onDrag: (dx: Int, dy: Int) -> Unit,
     onDismiss: () -> Unit,
@@ -27,7 +31,7 @@ fun FloatingButton(
 ) {
     Box(
         modifier = Modifier
-            .size(60.dp)
+            .size(size.dp)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { /* Optional: handle start */ },
@@ -40,14 +44,15 @@ fun FloatingButton(
                     }
                 )
             }
-            .background(Color.Blue.copy(alpha = 0.7f), CircleShape),
+            .background(outsideColor.copy(alpha = opacity), CircleShape),
         contentAlignment = Alignment.Center
     ) {
         IconButton(onClick = onClick) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                 contentDescription = "Volume",
-                tint = Color.White
+                tint = insideColor,
+                modifier = Modifier.size((size * 0.6).dp)
             )
         }
     }
@@ -56,5 +61,14 @@ fun FloatingButton(
 @Preview
 @Composable
 fun FloatingButtonPreview() {
-    FloatingButton(onClick = {}, onDrag = { _, _ -> }, onDismiss = {}, screenHeight = 2000)
+    FloatingButton(
+        size = 60,
+        opacity = 0.7f,
+        outsideColor = Color.Blue,
+        insideColor = Color.White,
+        onClick = {},
+        onDrag = { _, _ -> },
+        onDismiss = {},
+        screenHeight = 2000
+    )
 }

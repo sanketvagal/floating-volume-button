@@ -12,6 +12,9 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
@@ -33,6 +36,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var composeView: ComposeView
     private lateinit var audioManager: AudioManager
+    private lateinit var preferencesManager: PreferencesManager
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -50,6 +54,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        preferencesManager = PreferencesManager(this)
 
         createNotificationChannel()
         
@@ -89,7 +94,16 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
             setViewTreeViewModelStoreOwner(this@FloatingVolumeService)
             setViewTreeSavedStateRegistryOwner(this@FloatingVolumeService)
             setContent {
+                val size by preferencesManager.size.collectAsState()
+                val opacity by preferencesManager.opacity.collectAsState()
+                val outsideColor by preferencesManager.colorOutside.collectAsState()
+                val insideColor by preferencesManager.colorInside.collectAsState()
+
                 FloatingButton(
+                    size = size,
+                    opacity = opacity,
+                    outsideColor = Color(outsideColor),
+                    insideColor = Color(insideColor),
                     onClick = {
                         audioManager.adjustStreamVolume(
                             AudioManager.STREAM_MUSIC,
@@ -140,6 +154,9 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
 
     override fun onDestroy() {
         super.onDestroy()
+        if (::preferencesManager.isInitialized) {
+            preferencesManager.setEnabled(false)
+        }
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
         }
