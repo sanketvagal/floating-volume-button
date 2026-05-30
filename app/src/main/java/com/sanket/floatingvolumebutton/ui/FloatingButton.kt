@@ -25,6 +25,7 @@ fun FloatingButton(
     outsideColor: Color,
     insideColor: Color,
     onClick: () -> Unit,
+    onDragStart: () -> Unit,
     onDrag: (dx: Int, dy: Int) -> Unit,
     onDragEnd: () -> Unit,
     onDismiss: () -> Unit,
@@ -35,7 +36,7 @@ fun FloatingButton(
             .size(size.dp)
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { /* Optional: handle start */ },
+                    onDragStart = { onDragStart() },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         onDrag(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
@@ -68,6 +69,7 @@ fun FloatingButtonPreview() {
         outsideColor = Color.Blue,
         insideColor = Color.White,
         onClick = {},
+        onDragStart = {},
         onDrag = { _, _ -> },
         onDragEnd = {},
         onDismiss = {},

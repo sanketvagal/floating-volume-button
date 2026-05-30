@@ -38,6 +38,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
     private lateinit var composeView: ComposeView
     private lateinit var audioManager: AudioManager
     private lateinit var preferencesManager: PreferencesManager
+    private var isAtEdge = true
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -121,12 +122,19 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                             AudioManager.FLAG_SHOW_UI
                         )
                     },
+                    onDragStart = {
+                        if (isAtEdge) {
+                            performHaptic()
+                            isAtEdge = false
+                        }
+                    },
                     onDrag = { dx, dy ->
                         params.x += dx
                         params.y += dy
                         
                         // Check if dragged to bottom
                         if (params.y > screenHeight * 0.85) {
+                            performHaptic()
                             stopSelf()
                         } else {
                             windowManager.updateViewLayout(this, params)
@@ -138,6 +146,9 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                             val distRight = screenWidth - params.x - buttonSizePx
                             val distTop = params.y
 
+                            val oldX = params.x
+                            val oldY = params.y
+
                             if (distTop < distLeft && distTop < distRight && distTop < 200) {
                                 params.y = 0
                             } else if (distLeft < distRight) {
@@ -145,16 +156,34 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                             } else {
                                 params.x = screenWidth - buttonSizePx
                             }
+
+                            val snapped = params.x != oldX || params.y != oldY
+                            if (snapped) {
+                                performHaptic()
+                            }
+                            isAtEdge = params.x == 0 || params.x == screenWidth - buttonSizePx || params.y == 0
+                            
                             windowManager.updateViewLayout(this, params)
+                        } else {
+                            isAtEdge = false
                         }
                     },
-                    onDismiss = { stopSelf() },
+                    onDismiss = {
+                        performHaptic()
+                        stopSelf()
+                    },
                     screenHeight = screenHeight
                 )
             }
         }
 
         windowManager.addView(composeView, params)
+    }
+
+    private fun performHaptic() {
+        composeView.performHapticFeedback(
+            android.view.HapticFeedbackConstants.KEYBOARD_TAP
+        )
     }
 
     private fun createNotificationChannel() {
