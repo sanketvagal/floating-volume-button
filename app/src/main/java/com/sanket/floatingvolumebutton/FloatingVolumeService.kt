@@ -115,8 +115,8 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 0
-            y = 100
+            x = preferencesManager.getX()
+            y = preferencesManager.getY()
         }
 
         composeView = ComposeView(this).apply {
@@ -218,6 +218,10 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         } else {
                             isAtEdge = false
                         }
+
+                        // Save position
+                        preferencesManager.setX(params.x)
+                        preferencesManager.setY(params.y)
                     },
                     onDismiss = {
                         performHaptic()

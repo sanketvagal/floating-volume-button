@@ -20,6 +20,8 @@ class PreferencesManager(context: Context) {
             KEY_COLOR_INSIDE -> _colorInside.value = sharedPreferences.getInt(KEY_COLOR_INSIDE, DEFAULT_COLOR_INSIDE)
             KEY_STICK_TO_EDGES -> _stickToEdges.value = sharedPreferences.getBoolean(KEY_STICK_TO_EDGES, DEFAULT_STICK_TO_EDGES)
             KEY_DRAG_TO_DISMISS -> _dragToDismiss.value = sharedPreferences.getBoolean(KEY_DRAG_TO_DISMISS, DEFAULT_DRAG_TO_DISMISS)
+            KEY_X -> _x.value = sharedPreferences.getInt(KEY_X, DEFAULT_X)
+            KEY_Y -> _y.value = sharedPreferences.getInt(KEY_Y, DEFAULT_Y)
         }
     }
 
@@ -35,6 +37,8 @@ class PreferencesManager(context: Context) {
         const val KEY_COLOR_INSIDE = "color_inside"
         const val KEY_STICK_TO_EDGES = "stick_to_edges"
         const val KEY_DRAG_TO_DISMISS = "drag_to_dismiss"
+        const val KEY_X = "button_x"
+        const val KEY_Y = "button_y"
 
         const val DEFAULT_SIZE = 60
         const val DEFAULT_OPACITY = 0.7f
@@ -42,6 +46,8 @@ class PreferencesManager(context: Context) {
         val DEFAULT_COLOR_INSIDE = Color.White.toArgb()
         const val DEFAULT_STICK_TO_EDGES = false
         const val DEFAULT_DRAG_TO_DISMISS = true
+        const val DEFAULT_X = 0
+        const val DEFAULT_Y = 100
     }
 
     private val _isEnabled = MutableStateFlow(sharedPreferences.getBoolean(KEY_IS_ENABLED, false))
@@ -64,6 +70,12 @@ class PreferencesManager(context: Context) {
 
     private val _dragToDismiss = MutableStateFlow(sharedPreferences.getBoolean(KEY_DRAG_TO_DISMISS, DEFAULT_DRAG_TO_DISMISS))
     val dragToDismiss: StateFlow<Boolean> = _dragToDismiss
+
+    private val _x = MutableStateFlow(sharedPreferences.getInt(KEY_X, DEFAULT_X))
+    val x: StateFlow<Int> = _x
+
+    private val _y = MutableStateFlow(sharedPreferences.getInt(KEY_Y, DEFAULT_Y))
+    val y: StateFlow<Int> = _y
 
     fun setEnabled(enabled: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_IS_ENABLED, enabled).apply()
@@ -106,5 +118,19 @@ class PreferencesManager(context: Context) {
     fun setDragToDismiss(dismiss: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_DRAG_TO_DISMISS, dismiss).apply()
         _dragToDismiss.value = dismiss
+    }
+
+    fun getX(): Int = x.value
+
+    fun setX(x: Int) {
+        sharedPreferences.edit().putInt(KEY_X, x).apply()
+        _x.value = x
+    }
+
+    fun getY(): Int = y.value
+
+    fun setY(y: Int) {
+        sharedPreferences.edit().putInt(KEY_Y, y).apply()
+        _y.value = y
     }
 }
