@@ -11,6 +11,20 @@ class PreferencesManager(context: Context) {
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
+        when (key) {
+            KEY_IS_ENABLED -> _isEnabled.value = sharedPreferences.getBoolean(KEY_IS_ENABLED, false)
+            KEY_SIZE -> _size.value = sharedPreferences.getInt(KEY_SIZE, DEFAULT_SIZE)
+            KEY_OPACITY -> _opacity.value = sharedPreferences.getFloat(KEY_OPACITY, DEFAULT_OPACITY)
+            KEY_COLOR_OUTSIDE -> _colorOutside.value = sharedPreferences.getInt(KEY_COLOR_OUTSIDE, DEFAULT_COLOR_OUTSIDE)
+            KEY_COLOR_INSIDE -> _colorInside.value = sharedPreferences.getInt(KEY_COLOR_INSIDE, DEFAULT_COLOR_INSIDE)
+        }
+    }
+
+    init {
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
     companion object {
         const val KEY_IS_ENABLED = "is_enabled"
         const val KEY_SIZE = "button_size"

@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
@@ -70,6 +71,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         return START_STICKY
     }
 
@@ -98,6 +100,10 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                 val opacity by preferencesManager.opacity.collectAsState()
                 val outsideColor by preferencesManager.colorOutside.collectAsState()
                 val insideColor by preferencesManager.colorInside.collectAsState()
+
+                LaunchedEffect(size) {
+                    windowManager.updateViewLayout(this@apply, params)
+                }
 
                 FloatingButton(
                     size = size,
@@ -160,6 +166,8 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
         if (::composeView.isInitialized) {
             windowManager.removeView(composeView)
         }
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     }
 

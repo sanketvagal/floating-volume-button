@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -34,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -140,7 +138,8 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Size Setting
-        var size by remember { mutableFloatStateOf(preferencesManager.getSize().toFloat()) }
+        val currentSize by preferencesManager.size.collectAsState()
+        var size by remember(currentSize) { mutableFloatStateOf(currentSize.toFloat()) }
         Text(text = "Button Size: ${size.toInt()} dp")
         Slider(
             value = size,
@@ -154,7 +153,8 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Opacity Setting
-        var opacity by remember { mutableFloatStateOf(preferencesManager.getOpacity()) }
+        val currentOpacity by preferencesManager.opacity.collectAsState()
+        var opacity by remember(currentOpacity) { mutableFloatStateOf(currentOpacity) }
         Text(text = "Opacity: ${(opacity * 100).toInt()}%")
         Slider(
             value = opacity,
@@ -168,12 +168,11 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Outside Color
-        var outsideColor by remember { mutableIntStateOf(preferencesManager.getColorOutside()) }
+        val outsideColor by preferencesManager.colorOutside.collectAsState()
         Text(text = "Outside Color")
         ColorPickerRow(
             selectedColor = Color(outsideColor),
             onColorSelected = {
-                outsideColor = it.toArgb()
                 preferencesManager.setColorOutside(it.toArgb())
             }
         )
@@ -181,12 +180,11 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Inside Color
-        var insideColor by remember { mutableIntStateOf(preferencesManager.getColorInside()) }
+        val insideColor by preferencesManager.colorInside.collectAsState()
         Text(text = "Speaker Icon Color")
         ColorPickerRow(
             selectedColor = Color(insideColor),
             onColorSelected = {
-                insideColor = it.toArgb()
                 preferencesManager.setColorInside(it.toArgb())
             }
         )
