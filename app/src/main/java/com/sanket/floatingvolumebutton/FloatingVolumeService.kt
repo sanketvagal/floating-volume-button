@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.media.AudioManager
@@ -65,6 +66,10 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
     private lateinit var dismissParams: WindowManager.LayoutParams
     private val showDismissal = mutableStateOf(false)
     private val isNearDismissal = mutableStateOf(false)
+    private val screenWidth = mutableStateOf(0)
+    private val screenHeight = mutableStateOf(0)
+    private var floatX = 0f
+    private var floatY = 0f
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -83,6 +88,8 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         preferencesManager = PreferencesManager(this)
+
+        updateScreenDimensions()
 
         createNotificationChannel()
         
@@ -103,20 +110,75 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
         return START_STICKY
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val oldSw = screenWidth.value
+        val oldSh = screenHeight.value
+        updateScreenDimensions()
+        repositionButton(oldSw, oldSh)
+    }
+
+    private fun updateScreenDimensions() {
+        val dm = resources.displayMetrics
+        screenWidth.value = dm.widthPixels
+        screenHeight.value = dm.heightPixels
+    }
+
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
+    }
+
+    private fun repositionButton(oldSw: Int, oldSh: Int) {
+        if (!::composeView.isInitialized || !::params.isInitialized) return
+        
+        val viewWidth = composeView.width
+        val viewHeight = composeView.height
+        val sw = screenWidth.value
+        val sh = screenHeight.value
+        val statusBarHeight = getStatusBarHeight()
+
+        // Maintain relative Y position
+        if (oldSh > 0) {
+            val relativeY = floatY / oldSh
+            floatY = relativeY * sh
+        }
+        params.y = floatY.toInt().coerceIn(statusBarHeight, (sh - viewHeight).coerceAtLeast(statusBarHeight))
+        floatY = params.y.toFloat()
+
+        // Handle X snapping to corresponding edge
+        if (oldSw > 0) {
+            val wasOnRight = (floatX + viewWidth / 2) > (oldSw / 2)
+            if (wasOnRight) {
+                params.x = sw - viewWidth
+            } else {
+                params.x = 0
+            }
+        }
+        floatX = params.x.toFloat()
+        
+        windowManager.updateViewLayout(composeView, params)
+        preferencesManager.setX(params.x)
+        preferencesManager.setY(params.y)
+    }
+
     private fun setupFloatingButton() {
-        val displayMetrics = resources.displayMetrics
-        val screenHeight = displayMetrics.heightPixels
+        floatX = preferencesManager.getX().toFloat()
+        floatY = preferencesManager.getY().toFloat()
 
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = preferencesManager.getX()
-            y = preferencesManager.getY()
+            x = floatX.toInt()
+            y = floatY.toInt()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         composeView = ComposeView(this).apply {
@@ -131,7 +193,8 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                 val stickToEdges by preferencesManager.stickToEdges.collectAsState()
                 val dragToDismiss by preferencesManager.dragToDismiss.collectAsState()
 
-                val screenWidth = resources.displayMetrics.widthPixels
+                val sw by screenWidth
+                val sh by screenHeight
 
                 LaunchedEffect(size) {
                     windowManager.updateViewLayout(this@apply, params)
@@ -150,6 +213,8 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         )
                     },
                     onDragStart = {
+                        floatX = params.x.toFloat()
+                        floatY = params.y.toFloat()
                         if (isAtEdge) {
                             performHaptic()
                             isAtEdge = false
@@ -159,21 +224,25 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         }
                     },
                     onDrag = { dx, dy ->
-                        params.x += dx
-                        params.y += dy
+                        floatX += dx
+                        floatY += dy
                         
-                        // Prevent dragging off screen
-                        params.x = params.x.coerceIn(0, screenWidth - this@apply.width)
-                        params.y = params.y.coerceIn(0, screenHeight - this@apply.height)
+                        val statusBarHeight = getStatusBarHeight()
+                        params.x = floatX.toInt().coerceIn(0, sw - this@apply.width)
+                        params.y = floatY.toInt().coerceIn(statusBarHeight, sh - this@apply.height)
+                        
+                        // Sync float values if coerced
+                        floatX = params.x.toFloat()
+                        floatY = params.y.toFloat()
                         
                         // Check if dragged to bottom center
                         if (dragToDismiss) {
                             val centerX = params.x + this@apply.width / 2
                             val centerY = params.y + this@apply.height / 2
                             
-                            val inDismissZone = centerY > screenHeight * 0.8 && 
-                                               centerX > screenWidth * 0.3 && 
-                                               centerX < screenWidth * 0.7
+                            val inDismissZone = centerY > sh * 0.8 && 
+                                               centerX > sw * 0.3 && 
+                                               centerX < sw * 0.7
                             
                             if (inDismissZone != isNearDismissal.value) {
                                 isNearDismissal.value = inDismissZone
@@ -194,27 +263,32 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         if (stickToEdges) {
                             val viewWidth = this@apply.width
                             val distLeft = params.x
-                            val distRight = screenWidth - params.x - viewWidth
+                            val distRight = sw - params.x - viewWidth
                             val distTop = params.y
 
                             val oldX = params.x
                             val oldY = params.y
 
                             if (distTop < distLeft && distTop < distRight && distTop < 200) {
-                                params.y = 0
+                                val statusBarHeight = getStatusBarHeight()
+                                params.y = statusBarHeight
                             } else if (distLeft < distRight) {
                                 params.x = 0
                             } else {
-                                params.x = screenWidth - viewWidth
+                                params.x = sw - viewWidth
                             }
 
                             val snapped = params.x != oldX || params.y != oldY
                             if (snapped) {
                                 performHaptic()
                             }
-                            isAtEdge = params.x == 0 || params.x == screenWidth - viewWidth || params.y == 0
+                            isAtEdge = params.x == 0 || params.x == sw - viewWidth || params.y == 0
                             
                             windowManager.updateViewLayout(this@apply, params)
+                            
+                            // Sync float values after snapping
+                            floatX = params.x.toFloat()
+                            floatY = params.y.toFloat()
                         } else {
                             isAtEdge = false
                         }
@@ -227,7 +301,7 @@ class FloatingVolumeService : Service(), LifecycleOwner, ViewModelStoreOwner, Sa
                         performHaptic()
                         stopSelf()
                     },
-                    screenHeight = screenHeight
+                    screenHeight = sh
                 )
             }
         }

@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 
 @Composable
 fun FloatingButton(
@@ -27,7 +26,7 @@ fun FloatingButton(
     insideColor: Color,
     onClick: () -> Unit,
     onDragStart: () -> Unit,
-    onDrag: (dx: Int, dy: Int) -> Unit,
+    onDrag: (dx: Float, dy: Float) -> Unit,
     onDragEnd: () -> Unit,
     onDismiss: () -> Unit,
     screenHeight: Int
@@ -43,7 +42,7 @@ fun FloatingButton(
                     onDragStart = { onDragStart() },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        onDrag(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
+                        onDrag(dragAmount.x, dragAmount.y)
                     },
                     onDragEnd = {
                         onDragEnd()
